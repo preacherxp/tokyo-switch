@@ -13,7 +13,7 @@
  *
  * World: indexed pixels at low resolution. Hours change by swapping dithered palettes, so no in-between colours.
  * Lights: each sign belongs to a group that ignites on its own, stutter included.
- * Shell: WebGL draws the bezel, neon tube, rain on the glass and the lens. World pixels stay at integer scale.
+ * Shell: WebGL draws the bezel, neon tube, rain on the glass and the lens.
  */
 (() => {
   // Logical scene is 320x150. The buffer has spare sky and street so wider windows still have something to show.
@@ -197,6 +197,8 @@
   mat('FUTON_B', '#7ea2c8');
   mat('SHIRT_B', '#8fb4d6');
   mat('SHIRT_P', '#eba7bc');
+
+  const STREET_MATS = new Set([M.ROAD, M.ROAD_D, M.ROAD_L, M.LINE, M.MANHOLE, M.WALK, M.WALK_D, M.TACTILE, M.CURB]);
 
   // Sky ramps, top to horizon
   const SKY = [
@@ -2099,6 +2101,7 @@
             const y = by + s + PAD_Y;
             if (x < 0 || x >= BW || y < ROAD + PAD_Y || y >= BH) continue;
             if (a * 16 < BAYER[(y & 3) * 4 + (x & 3)]) continue;
+            if (!STREET_MATS.has(this.fmat[y * BW + x])) continue;
             const j = (y * BW + x) * 4;
             pix[j] = Math.min(255, pix[j] + 54);
             pix[j + 1] = Math.min(255, pix[j + 1] + 50);
@@ -2138,6 +2141,7 @@
         const amp = 0.5 + dy * 0.06;
         const yy = (y & 3) << 2;
         for (let x = 0; x < BW; x++) {
+          if (!STREET_MATS.has(this.fmat[y * BW + x])) continue;
           const sx = clamp(x + Math.round(sh[(x * 3 + y * 11 + tick) & 1023] * amp * 0.5), 1, BW - 2);
           const k1 = 0.022;
           let r = (colR[sx - 1] + 2 * colR[sx] + colR[sx + 1]) * k1;
@@ -2166,6 +2170,7 @@
         const dy = y - walkTop;
         const yy = (y & 3) << 2;
         for (let x = 0; x < BW; x++) {
+          if (!STREET_MATS.has(this.fmat[y * BW + x])) continue;
           const sy = walkTop - 1 - dy * 2;
           const j = (sy * BW + x) * 4;
           const r = emit[j], g = emit[j + 1], b = emit[j + 2];
@@ -2180,6 +2185,7 @@
       // Feed a bit of the road back into the glow
       for (let y = roadTop; y < BH; y += 1) {
         for (let x = 0; x < BW; x++) {
+          if (!STREET_MATS.has(this.fmat[y * BW + x])) continue;
           const i = (y * BW + x) * 4;
           const sy = Math.round(roadTop - 3 - (y - roadTop) * 3);
           if (sy < 0) continue;
@@ -2562,13 +2568,13 @@ void main() {
 
         float mag = 1.2 + uLift * 0.05;
         vec2 base = lc + lq / mag;
-        float bend = pow(rho, 8.0) * lr * (0.52 + uLift * 0.05);
+        float bend = pow(rho, 8.0) * lr * (0.18 + uLift * 0.02);
         vec2 src = base + gr * bend;
         // Footprint, so the compressed rim doesn't shimmer
         float foot = length(dFdx(src)) + length(dFdy(src));
         float lod = max(0.0, log2(foot * 0.5 / uK));
         vec3 seen;
-        float ca = 0.05 * smoothstep(0.6, 1.0, rho);
+        float ca = 0.015 * smoothstep(0.8, 1.0, rho);
         if (ca > 0.001) {
           vec2 off = gr * bend;
           seen.r = scene(base + off * (1.0 - ca) + gr * ca * lr * 0.06, lod).r;
@@ -2798,16 +2804,14 @@ button:focus-visible { outline: 2px solid #ff2a8c; outline-offset: 6px; box-shad
       const winH = pillH - bezel * 2;
       const winW = pillW - bezel * 2;
 
-      // Integer scale. Show between 130 and 190 rows where we can, so pixels stay honest.
-      let k = Math.max(1, Math.floor(winH / 130));
-      if (winH / k > BH || winW / k > BW) k = Math.ceil(Math.max(winH / BH, winW / BW));
-      if (winH < 90) k = winH / 110;
+      // Keep the same 150 rows visible so resizing never changes the scene's framing.
+      const k = winH / 150;
       const lensR = (winH / 2) * 0.94;
       const lim = winW / 2 - (winH / 2 - lensR) - lensR;
       this.shape = {
         W, H, dpr, pillW, pillH, bezel, winH, winW, k,
-        ox: Math.round(W / 2 - (160 + PAD_X) * k),
-        oy: Math.round(H / 2 - winH / 2 + BH * k),
+        ox: W / 2 - (160 + PAD_X) * k,
+        oy: H / 2 - winH / 2 + BH * k,
         lensR, travel: lim * 2, travelCss: (lim * 2) / dpr,
       };
       this.initGl();
