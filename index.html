@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tokyo switch</title>
+<script>
+  // Decide the theme before first paint so a saved night doesn't flash
+  (() => {
+    const saved = localStorage.getItem('tokyo-switch');
+    const night = saved ? saved === 'night' : matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.dataset.theme = night ? 'dark' : 'light';
+    document.documentElement.style.setProperty('--dark', night ? 1 : 0);
+  })();
+</script>
+<style>
+  :root {
+    --dark: 0;
+    --paper: #efe9dc;
+    --ink: #2a2620;
+    --quiet: #7d7566;
+    --line: #d5ccb9;
+    --night-paper: #08080f;
+    --night-ink: #efeaf6;
+    --night-quiet: #8b86a3;
+    --night-line: #26243a;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    /* --dark follows the hours as the lens moves, so the page turns with the sky */
+    --mix: calc(var(--dark) * 100%);
+    --dusk: calc(var(--dark) * (1 - var(--dark)) * 4);
+    background: color-mix(in oklab, var(--night-paper) var(--mix), var(--paper));
+    background-image: linear-gradient(color-mix(in oklab, #2d1c52 calc(var(--dusk) * 62%), transparent), color-mix(in oklab, #2d1c52 calc(var(--dusk) * 62%), transparent));
+    color: color-mix(in oklab, var(--night-ink) var(--mix), var(--ink));
+    font: 15px/1.5 ui-sans-serif, -apple-system, "Hiragino Sans", "Segoe UI", sans-serif;
+    display: grid;
+    place-items: center;
+    padding: 48px 24px;
+    overflow-x: hidden;
+  }
+  main { width: min(760px, 100%); display: grid; gap: 56px; justify-items: center; }
+  tokyo-switch { width: min(680px, 100%); }
+  .read {
+    display: grid;
+    grid-template-columns: auto auto;
+    gap: 2px 28px;
+    align-items: baseline;
+    justify-content: center;
+    text-align: center;
+  }
+  .clock { font: 500 44px/1.1 ui-monospace, "SF Mono", Menlo, monospace; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .place { color: color-mix(in oklab, var(--night-quiet) var(--mix), var(--quiet)); font-size: 15px; text-align: left; }
+  .place b { display: block; font-weight: 600; color: color-mix(in oklab, var(--night-ink) var(--mix), var(--ink)); }
+  .keys {
+    margin: 0;
+    color: color-mix(in oklab, var(--night-quiet) var(--mix), var(--quiet));
+    font-size: 14px;
+    text-align: center;
+  }
+  kbd {
+    font: 500 12px ui-monospace, "SF Mono", Menlo, monospace;
+    padding: 2px 6px;
+    border: 1px solid color-mix(in oklab, var(--night-line) var(--mix), var(--line));
+    border-radius: 4px;
+  }
+</style>
+</head>
+<body>
+<main>
+  <tokyo-switch id="toggle"></tokyo-switch>
+  <div class="read" aria-hidden="true">
+    <div class="clock" id="clock">12:00</div>
+    <div class="place"><b>東京 Tokyo</b><span id="phase">Daytime</span></div>
+  </div>
+  <p class="keys">Drag to move through the hours. Tap to switch. <kbd>←</kbd> <kbd>→</kbd> step, <kbd>Space</kbd> toggles.</p>
+</main>
+<script src="tokyo-switch.js"></script>
+<script>
+  const toggle = document.getElementById('toggle');
+  const root = document.documentElement;
+  const clock = document.getElementById('clock');
+  const phase = document.getElementById('phase');
+
+  const phaseOf = (h) => (h >= 5 && h < 7 ? 'Dawn' : h >= 7 && h < 10 ? 'Morning' : h >= 10 && h < 16 ? 'Daytime' : h >= 16 && h < 18 ? 'Golden hour' : h >= 18 && h < 19.5 ? 'Signs coming on' : 'Night, raining');
+
+  toggle.addEventListener('scrub', (e) => {
+    const { hour, dark } = e.detail;
+    root.style.setProperty('--dark', dark.toFixed(3));
+    const hh = Math.floor(hour);
+    const mm = Math.floor((hour % 1) * 60);
+    clock.textContent = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+    phase.textContent = phaseOf(hour);
+  });
+  toggle.addEventListener('change', (e) => {
+    root.dataset.theme = e.detail.night ? 'dark' : 'light';
+    localStorage.setItem('tokyo-switch', e.detail.night ? 'night' : 'day');
+  });
+  if (root.dataset.theme === 'dark') toggle.jump(true);
+</script>
+</body>
+</html>
