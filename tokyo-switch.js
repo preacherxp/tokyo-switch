@@ -177,13 +177,13 @@
   mat('CAT_K', '#2a2622');
   mat('CROW', '#1a1a22');
   mat('TIRE', '#17181c');
-  mat('CAR_K', '#23252c');
+  mat('CAR_K', '#23252c', { [NIGHT]: '#3e526c' });
   mat('CAR_R', '#c23a33');
-  mat('CAR_W', '#e8e8e4');
+  mat('CAR_W', '#e8e8e4', { [NIGHT]: '#8c9caf' });
   mat('CAR_B', '#3f6ca8');
-  mat('CAR_Y', '#e5b93a');
-  mat('CAR_DK', '#14151a');
-  mat('CAR_GLASS', '#7da3bc', { [NIGHT]: '#1a1f42' });
+  mat('CAR_Y', '#e5b93a', { [NIGHT]: '#ad8c45' });
+  mat('CAR_DK', '#14151a', { [NIGHT]: '#202d43' });
+  mat('CAR_GLASS', '#7da3bc', { [NIGHT]: '#1e304b' });
   mat('SMOKE', '#f4f1ea', { [NIGHT]: '#5b5478', [DUSK]: '#b98fa8' });
   mat('PETAL', '#fbd3df', { [NIGHT]: '#7a4a80' });
   mat('MOON', '#f2eddc', { [DUSK]: '#f8d9c0' });
@@ -476,7 +476,7 @@
       if (mode === 'lit') this.lightRect(x, y, w - 1, total, n, g);
       let cy = y + pad;
       chars.forEach((c, i) => {
-        const gw = GLYPH[c] ? GLYPH[c][0].length : 3;
+        const gw = (GLYPH[c] || FONT3[c] || FONT3[' '])[0].length;
         const gx = x + Math.floor((w - 1 - gw) / 2);
         this.glyph(c, gx, cy, (px, py) => {
           if (mode === 'lit') this.px(px, py, M.PAINT_K);
@@ -493,7 +493,7 @@
       this.rect(x, y, w, h, board);
       if (mode === 'lit') this.lightRect(x, y, w, h, n, g);
       const chars = [...text];
-      const widths = chars.map((c) => (GLYPH[c] ? GLYPH[c][0].length : 3));
+      const widths = chars.map((c) => (GLYPH[c] || FONT3[c] || FONT3[' '])[0].length);
       const total = widths.reduce((a, b) => a + b + 1, -1);
       let cx = x + Math.floor((w - total) / 2);
       chars.forEach((c, i) => {
@@ -2236,6 +2236,7 @@
           const x = rip.x + s + PAD_X;
           const y = rip.y + PAD_Y;
           if (x < 0 || x >= BW || y < 0 || y >= BH) continue;
+          if (!STREET_MATS.has(this.fmat[y * BW + x])) continue;
           const i = (y * BW + x) * 4;
           pix[i] = Math.min(255, pix[i] + 30);
           pix[i + 1] = Math.min(255, pix[i + 1] + 34);
@@ -2325,7 +2326,7 @@ vec3 glowOf(vec2 p) {
 }
 vec3 scene(vec2 p, float lod) {
   vec3 c = textureLod(uWorld, worldUv(p), lod + uLod).rgb;
-  return 1.0 - (1.0 - c) * (1.0 - clamp(glowOf(p), 0.0, 1.0));
+  return 1.0 - (1.0 - c) * (1.0 - clamp(glowOf(p) * 0.55, 0.0, 1.0));
 }
 
 // Beaded water on the pane: a coarse layer and a fine one, each bead swelling and drying on its own
