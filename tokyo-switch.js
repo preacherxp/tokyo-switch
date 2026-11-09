@@ -2743,8 +2743,7 @@ button:focus-visible { outline: 2px solid #ff2a8c; outline-offset: 6px; box-shad
 
     hour() {
       if (this.branch === 'am') return mix(36, this.amStart, this.x);
-      if (this.x >= 1) return this.nightHour;
-      return mix(HOUR_DAY, HOUR_NIGHT, this.x);
+      return mix(HOUR_DAY, this.nightHour, this.x);
     }
 
     beginTravel() {
@@ -2759,7 +2758,7 @@ button:focus-visible { outline: 2px solid #ff2a8c; outline-offset: 6px; box-shad
       this.x = night ? 1 : 0;
       this.v = 0;
       this.moving = false;
-      if (night) this.nightHour = this.branch === 'am' ? this.amStart : HOUR_NIGHT;
+      if (!night) this.nightHour = HOUR_NIGHT;
       this.branch = 'pm';
       if (this._checked !== night) {
         this._checked = night;
@@ -3063,8 +3062,12 @@ button:focus-visible { outline: 2px solid #ff2a8c; outline-offset: 6px; box-shad
         this.v = (this.x - before) / Math.max(dt, 1 / 240);
       } else if (this.moving) {
         if (calm) {
-          this.commit(this.target >= 1);
-          if (this.target > 0 && this.target < 1) this.x = this.target;
+          if (this.target === 0 || this.target === 1) this.commit(this.target === 1);
+          else {
+            this.x = this.target;
+            this.v = 0;
+            this.moving = false;
+          }
         } else {
           const omega = 13;
           const zeta = 0.78;
@@ -3218,15 +3221,19 @@ button:focus-visible { outline: 2px solid #ff2a8c; outline-offset: 6px; box-shad
         this.wake();
       });
       b.addEventListener('keydown', (e) => {
-        let goal = null;
-        if (e.key === 'ArrowRight' || e.key === 'ArrowUp') goal = clamp((this.moving ? this.target : this.x) + 0.05);
-        else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') goal = clamp((this.moving ? this.target : this.x) - 0.05);
-        else if (e.key === 'Home') goal = 0;
-        else if (e.key === 'End') goal = 1;
-        if (goal === null) return;
+        const step = e.key === 'ArrowRight' || e.key === 'ArrowUp' ? 0.05 : e.key === 'ArrowLeft' || e.key === 'ArrowDown' ? -0.05 : 0;
+        const end = e.key === 'Home' ? 0 : e.key === 'End' ? 1 : null;
+        if (!step && end === null) return;
         e.preventDefault();
-        this.beginTravel();
-        this.target = goal;
+        if (step) {
+          // Arrows work the clock directly: left is earlier, right is later. Mid-way through dawn the hours can't switch without a jump.
+          if (this.branch === 'am' && this.moving) return;
+          this.branch = 'pm';
+          this.target = clamp((this.moving ? this.target : this.x) + step);
+        } else {
+          this.beginTravel();
+          this.target = end;
+        }
         this.moving = true;
         this.wake();
       });
